@@ -33,14 +33,35 @@ def get_basisregister_adres_match(
         params["Busnummer"] = replace_accents(str(bus))
 
     if not params:
-        return []
+        return {
+            "status": "invalid_input",
+            "results": []
+        }
 
     query_string = urlencode(params)
     url = f"{BASISREGISTER_ADRESMATCH}?{query_string}"
 
-    response = get_with_retry(url)
+    try:
+        response = get_with_retry(url)
 
-    return process_basisregister_response(response.json())
+        if(response is None):
+            return {
+                "status": "lookup_failed",
+                "results": None
+            }
+
+        return {
+            "status": "success",
+            "results": process_basisregister_response(response.json())
+        }
+
+    except Exception as e:
+        log(f"Unexpected error during address lookup: {e}")
+
+        return {
+            "status": "lookup_failed",
+            "results": None
+        }
 
 def replace_accents(value: str) -> str:
     """

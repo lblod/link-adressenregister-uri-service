@@ -1,5 +1,4 @@
-import os
-from typing import Dict, Optional
+from typing import Dict
 from queries import insert_uri_query, correct_uri_query, remove_uri_query, get_addresses
 from adressenregister_match import get_basisregister_adres_match
 from helpers import log
@@ -12,14 +11,12 @@ HEADERS_ADRESS = {
   "Accept": "application/json",
 }
 
-def try_match_address(entry: Dict) -> Optional[str]:
+def try_match_address(entry: Dict) -> Dict:
     """
     Try to match an address via the address register.
-    If exactly one result is returned and the formatted address matches,
-    return the adres identificator id.
     """
 
-    data = get_basisregister_adres_match(
+    lookup = get_basisregister_adres_match(
         entry.get("addressGemeenteNaam"),
         entry.get("addressGemeentePostCode"),
         entry.get("addressStreet"),
@@ -27,7 +24,18 @@ def try_match_address(entry: Dict) -> Optional[str]:
         entry.get("addressBus")
     )
 
+    if lookup["status"] == "lookup_failed":
+        log(f"Lookup failed for {entry.get('address')}")
+
+        return {
+            "status": "lookup_failed",
+            "uri": None
+        }
+
+    data = lookup["results"]
+
     matches = []
+
     for result in data:
         volledig_adres = (
             result
@@ -47,27 +55,36 @@ def try_match_address(entry: Dict) -> Optional[str]:
                    f"{entry.get('addressGemeentePostCode')} {entry.get('addressGemeenteNaam')}, " \
                    f"{entry.get('addressGemeenteLand')}"
 
-        if volledig_adres.strip() != expected.strip():
-            continue
-        else:
+        if volledig_adres.strip() == expected.strip():
             matches.append(result)
 
     matches = [m for m in matches if m.get("adresStatus") == "inGebruik"]
 
     if len(matches) == 0:
-        log("No matches found for " + entry.get('address'))
-        return
+        log(f"No matches found for {entry.get('address')}")
+
+        return {
+            "status": "no_match",
+            "uri": None
+        }
 
     if len(matches) > 1:
-        log("WARNING: Too many matches found for " + entry.get('address'))
-        return
+        log(f"WARNING: Too many matches found for {entry.get('address')}")
+
+        return {
+            "status": "multiple_matches",
+            "uri": None
+        }
 
     identificator = matches[0].get("identificator", {})
 
     id = identificator.get("id")
     log(f"For <{entry.get('address')}> found URI <{id}> in address register.")
 
-    return id
+    return {
+        "status": "matched",
+        "uri": id
+    }
 
 def run():
     addresses = get_addresses()
@@ -81,6 +98,7 @@ def run():
     adjust_uri_addresses = []
     add_uri_addresses = []
     no_match_addresses = []
+    skipped_addresses = []
 
     current_count = 1
 
@@ -88,19 +106,27 @@ def run():
         log(f"Processing address {current_count}/{count}: {address.get('address')}")
         current_count += 1
 
-        adress_register = try_match_address(address)
+        match_result = try_match_address(address)
+
+        status = match_result["status"]
+        adress_register = match_result["uri"]
 
         # We sort the addresses:
-        if(address.get('uri') and not adress_register):
-            remove_uri_addresses.append(address)
-        elif(not address.get('uri') and not adress_register):
-            no_match_addresses.append(address)
-        elif(address.get('uri') and adress_register and address.get('uri') != adress_register):
-            address['addressRegister'] = adress_register
-            adjust_uri_addresses.append(address)
-        elif(not address.get('uri') and adress_register):
-            address['addressRegister'] = adress_register
-            add_uri_addresses.append(address)
+        if(status in ["lookup_failed", "multiple_matches"]):
+            skipped_addresses.append(address)
+            continue
+        elif(status == "no_match"):
+            if(address.get('uri')):
+                remove_uri_addresses.append(address)
+            else:
+                no_match_addresses.append(address)
+        elif(status == "matched"):
+            if(address.get('uri') and address.get('uri') != adress_register):
+                address['addressRegister'] = adress_register
+                adjust_uri_addresses.append(address)
+            elif(not address.get('uri')):
+                address['addressRegister'] = adress_register
+                add_uri_addresses.append(address)
 
     log(f"Found {len(remove_uri_addresses)} addresses where URI should be empty but is not.")
     log(f"Found {len(adjust_uri_addresses)} addresses with mismatched URI.")
