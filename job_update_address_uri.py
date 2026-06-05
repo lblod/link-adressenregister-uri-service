@@ -16,11 +16,18 @@ def try_match_address(entry: Dict) -> Dict:
     Try to match an address via the address register.
     """
 
+    house_number = entry.get("addressGemeenteNummer")
+    if house_number and not house_number.strip():
+        house_number = None
+    elif house_number and not house_number[0].isdigit():
+        # if the first character of the house number is not a digit, we assume the address has no house number and we set it to None (e.g. "z/n")
+        house_number = None
+
     lookup = get_basisregister_adres_match(
         entry.get("addressGemeenteNaam"),
         entry.get("addressGemeentePostCode"),
         entry.get("addressStreet"),
-        entry.get("addressGemeenteNummer"),
+        house_number,
         entry.get("addressBus")
     )
 
@@ -44,6 +51,11 @@ def try_match_address(entry: Dict) -> Dict:
             .get("spelling", "")
         )
 
+        if house_number:
+            house_number_part = f" {house_number}"
+        else:
+            house_number_part = ""
+
         bus = entry.get("addressBus")
         if bus and bus.strip():
             bus_part = f" bus {bus}"
@@ -51,7 +63,7 @@ def try_match_address(entry: Dict) -> Dict:
             bus_part = ""
 
 
-        expected = f"{entry.get('addressStreet')} {entry.get('addressGemeenteNummer')}{bus_part}, " \
+        expected = f"{entry.get('addressStreet')}{house_number_part}{bus_part}, " \
                    f"{entry.get('addressGemeentePostCode')} {entry.get('addressGemeenteNaam')}, " \
                    f"{entry.get('addressGemeenteLand')}"
 
@@ -62,6 +74,12 @@ def try_match_address(entry: Dict) -> Dict:
 
     if len(matches) == 0:
         log(f"No matches found for {entry.get('address')}")
+        if not house_number:
+            log(f"Note: No house number provided for {entry.get('address')}, this might be the reason for no matches.")
+            return {
+                "status": "no_housenumber",
+                "uri": None
+            }
 
         return {
             "status": "no_match",
@@ -99,6 +117,7 @@ def run():
     add_uri_addresses = []
     no_match_addresses = []
     skipped_addresses = []
+    no_housenumber_addresses = []
 
     current_count = 1
 
@@ -114,6 +133,9 @@ def run():
         # We sort the addresses:
         if(status in ["lookup_failed", "multiple_matches"]):
             skipped_addresses.append(address)
+            continue
+        elif(status == "no_housenumber"):
+            no_housenumber_addresses.append(address)
             continue
         elif(status == "no_match"):
             if(address.get('uri')):
@@ -131,7 +153,8 @@ def run():
     log(f"Found {len(remove_uri_addresses)} addresses where URI should be empty but is not.")
     log(f"Found {len(adjust_uri_addresses)} addresses with mismatched URI.")
     log(f"Found {len(add_uri_addresses)} addresses with missing URI.")
-    log(f"Found {len(no_match_addresses)} addresses with no match in address register.")
+    log(f"Found {len(no_match_addresses) + len(no_housenumber_addresses)} addresses with no match in address register.")
+    log(f"Of those with no match, {len(no_housenumber_addresses)} had no house number, which might be the reason for no match.")
 
     # write queries and send them to database
     insert_uri_query(add_uri_addresses)

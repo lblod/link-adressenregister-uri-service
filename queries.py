@@ -25,10 +25,9 @@ def get_addresses() -> Dict:
                     <http://www.w3.org/ns/locn#thoroughfare> ?addressStreet;
                     <https://data.vlaanderen.be/ns/adres#gemeentenaam> ?addressGemeenteNaam;
                     <https://data.vlaanderen.be/ns/adres#land> ?addressGemeenteLand;
-                    <http://www.w3.org/ns/locn#postCode> ?addressGemeentePostCode;
-                    <https://data.vlaanderen.be/ns/adres#Adresvoorstelling.huisnummer>
-                    ?addressGemeenteNummer.
+                    <http://www.w3.org/ns/locn#postCode> ?addressGemeentePostCode.
                     
+                OPTIONAL { ?address <https://data.vlaanderen.be/ns/adres#Adresvoorstelling.huisnummer> ?addressGemeenteNummer. }
                 OPTIONAL { ?address <https://data.vlaanderen.be/ns/adres#verwijstNaar> ?uri. }
                 OPTIONAL { ?address <https://data.vlaanderen.be/ns/adres#Adresvoorstelling.busnummer> ?addressBus. }
             }
