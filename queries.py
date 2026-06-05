@@ -17,7 +17,6 @@ def get_addresses() -> Dict:
             ?addressGemeentePostCode
             ?addressGemeenteNummer
             ?addressBus
-            ?site
             ?uri
         WHERE {
             GRAPH ?graph {
@@ -31,9 +30,6 @@ def get_addresses() -> Dict:
                 OPTIONAL { ?address <https://data.vlaanderen.be/ns/adres#verwijstNaar> ?uri. }
                 OPTIONAL { ?address <https://data.vlaanderen.be/ns/adres#Adresvoorstelling.busnummer> ?addressBus. }
             }
-
-            ?site a <http://www.w3.org/ns/org#Site>;
-            <https://data.vlaanderen.be/ns/organisatie#bestaatUit> ?address.
         }
     """
     result = query(addresses_query)

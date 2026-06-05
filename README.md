@@ -16,7 +16,6 @@ The service will use the following query to query all addresses in the triplesto
             ?addressGemeentePostCode
             ?addressGemeenteNummer
             ?addressBus
-            ?site
             ?uri
         WHERE {
             GRAPH ?graph {
@@ -24,16 +23,12 @@ The service will use the following query to query all addresses in the triplesto
                     <http://www.w3.org/ns/locn#thoroughfare> ?addressStreet;
                     <https://data.vlaanderen.be/ns/adres#gemeentenaam> ?addressGemeenteNaam;
                     <https://data.vlaanderen.be/ns/adres#land> ?addressGemeenteLand;
-                    <http://www.w3.org/ns/locn#postCode> ?addressGemeentePostCode;
-                    <https://data.vlaanderen.be/ns/adres#Adresvoorstelling.huisnummer>
-                    ?addressGemeenteNummer.
+                    <http://www.w3.org/ns/locn#postCode> ?addressGemeentePostCode.
                     
+                OPTIONAL { ?address <https://data.vlaanderen.be/ns/adres#Adresvoorstelling.huisnummer> ?addressGemeenteNummer. }
                 OPTIONAL { ?address <https://data.vlaanderen.be/ns/adres#verwijstNaar> ?uri. }
                 OPTIONAL { ?address <https://data.vlaanderen.be/ns/adres#Adresvoorstelling.busnummer> ?addressBus. }
             }
-
-            ?site a <http://www.w3.org/ns/org#Site>;
-            <https://data.vlaanderen.be/ns/organisatie#bestaatUit> ?address.
         }
 ```
 
@@ -64,4 +59,4 @@ The variable `CRON_SCHEDULE` is optional. By default its value is `"0 0 * * *"`.
 ## How to run
 
 The service will run a scheduled job every day at midnight. This pattern can be altered by setting the `CRON_SCHEDULE` variable.
-It can also be manually triggered by running `curl http://localhost:8080/run` (assuming the service is exposed on port 8080).
+It can also be manually triggered by running `curl -X POST http://localhost:8080/run` (assuming the service is exposed on port 8080).
