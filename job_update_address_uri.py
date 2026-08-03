@@ -62,6 +62,8 @@ def try_match_address(entry: Dict) -> Dict:
         else:
             bus_part = ""
 
+        if not entry.get("addressGemeenteLand"):
+            entry["addressGemeenteLand"] = "België"
 
         expected = f"{entry.get('addressStreet')}{house_number_part}{bus_part}, " \
                    f"{entry.get('addressGemeentePostCode')} {entry.get('addressGemeenteNaam')}, " \
