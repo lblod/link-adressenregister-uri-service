@@ -23,6 +23,9 @@ def try_match_address(entry: Dict) -> Dict:
         # if the first character of the house number is not a digit, we assume the address has no house number and we set it to None (e.g. "z/n")
         house_number = None
 
+    if not entry.get("addressGemeenteLand"):
+        entry["addressGemeenteLand"] = "België"
+
     lookup = get_basisregister_adres_match(
         entry.get("addressGemeenteNaam"),
         entry.get("addressGemeentePostCode"),
@@ -61,9 +64,6 @@ def try_match_address(entry: Dict) -> Dict:
             bus_part = f" bus {bus}"
         else:
             bus_part = ""
-
-        if not entry.get("addressGemeenteLand"):
-            entry["addressGemeenteLand"] = "België"
 
         expected = f"{entry.get('addressStreet')}{house_number_part}{bus_part}, " \
                    f"{entry.get('addressGemeentePostCode')} {entry.get('addressGemeenteNaam')}, " \
