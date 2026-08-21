@@ -2,6 +2,7 @@ from typing import Dict
 from queries import insert_uri_query, correct_uri_query, remove_uri_query, get_addresses
 from adressenregister_match import get_basisregister_adres_match
 from helpers import log
+import math
 
 HEADERS = {
     "Content-Type": "application/x-www-form-urlencoded",
@@ -106,22 +107,20 @@ def try_match_address(entry: Dict) -> Dict:
         "uri": id
     }
 
-def run():
-    addresses = get_addresses()
-    count = len(addresses)
-
-    if(count == 0):
-        log("No addresses found, exiting.")
-        return
-
+def process_addresses(addresses: list, count: int, start_index: int) -> Dict:
+    stats = {
+        "remove_uri": 0,
+        "adjust_uri": 0,
+        "add_uri": 0,
+        "no_match": 0,
+        "skipped": 0,
+        "no_housenumber": 0,
+    }
     remove_uri_addresses = []
     adjust_uri_addresses = []
     add_uri_addresses = []
-    no_match_addresses = []
-    skipped_addresses = []
-    no_housenumber_addresses = []
 
-    current_count = 1
+    current_count = start_index
 
     for address in addresses:
         log(f"Processing address {current_count}/{count}: {address.get('address')}")
@@ -134,33 +133,74 @@ def run():
 
         # We sort the addresses:
         if(status in ["lookup_failed", "multiple_matches"]):
-            skipped_addresses.append(address)
+            stats["skipped"] += 1
             continue
         elif(status == "no_housenumber"):
-            no_housenumber_addresses.append(address)
+            stats["no_housenumber"] += 1
             continue
         elif(status == "no_match"):
             if(address.get('uri')):
                 remove_uri_addresses.append(address)
+                stats["remove_uri"] += 1
             else:
-                no_match_addresses.append(address)
+                stats["no_match"] += 1
         elif(status == "matched"):
             if(address.get('uri') and address.get('uri') != adress_register):
                 address['addressRegister'] = adress_register
                 adjust_uri_addresses.append(address)
+                stats["adjust_uri"] += 1
             elif(not address.get('uri')):
                 address['addressRegister'] = adress_register
                 add_uri_addresses.append(address)
-
-    log(f"Found {len(remove_uri_addresses)} addresses where URI should be empty but is not.")
-    log(f"Found {len(adjust_uri_addresses)} addresses with mismatched URI.")
-    log(f"Found {len(add_uri_addresses)} addresses with missing URI.")
-    log(f"Found {len(no_match_addresses) + len(no_housenumber_addresses)} addresses with no match in address register.")
-    log(f"Of those with no match, {len(no_housenumber_addresses)} had no house number, which might be the reason for no match.")
+                stats["add_uri"] += 1
 
     # write queries and send them to database
-    insert_uri_query(add_uri_addresses)
-    remove_uri_query(remove_uri_addresses)
-    correct_uri_query(adjust_uri_addresses)
+    try:
+        insert_uri_query(add_uri_addresses)
+        remove_uri_query(remove_uri_addresses)
+        correct_uri_query(adjust_uri_addresses)
+    except Exception as e:
+        log(f"Error while executing query: {e}")
+
+    return stats
+
+def batch(iterable, size):
+    for i in range(0, len(iterable), size):
+        yield iterable[i:i + size]
+
+def run():
+    addresses = get_addresses()
+    count = len(addresses)
+
+    if count == 0:
+        log("No addresses found, exiting.")
+        return
+
+    batch_size = 10
+    total_batches = math.ceil(count/batch_size)
+
+    totals = {
+        "remove_uri": 0,
+        "adjust_uri": 0,
+        "add_uri": 0,
+        "no_match": 0,
+        "skipped": 0,
+        "no_housenumber": 0,
+    }
+
+    for batch_num, address_batch in enumerate(batch(addresses, batch_size), start=1):
+        log(f"Processing batch {batch_num}/{total_batches} ")
+        
+        start_index = (batch_num - 1) * batch_size + 1
+        stats = process_addresses(address_batch, count, start_index)
+
+        for key in totals:
+            totals[key] += stats[key]
+
+    log(f"Found {totals['remove_uri']} addresses where URI should be empty but is not.")
+    log(f"Found {totals['adjust_uri']} addresses with mismatched URI.")
+    log(f"Found {totals['add_uri']} addresses with missing URI.")
+    log(f"Found {totals['no_match'] + totals['no_housenumber']} addresses with no match in address register.")
+    log(f"Of those with no match, {totals['no_housenumber']} had no house number, which might be the reason for no match.")
 
     log("Processing completed.")
