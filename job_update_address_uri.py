@@ -1,8 +1,11 @@
+import os
 from typing import Dict
 from queries import insert_uri_query, correct_uri_query, remove_uri_query, get_addresses
 from adressenregister_match import get_basisregister_adres_match
 from helpers import log
 import math
+
+BATCH_SIZE = int(os.getenv("BATCH_SIZE") or 10)
 
 HEADERS = {
     "Content-Type": "application/x-www-form-urlencoded",
@@ -176,8 +179,7 @@ def run():
         log("No addresses found, exiting.")
         return
 
-    batch_size = 10
-    total_batches = math.ceil(count/batch_size)
+    total_batches = math.ceil(count/BATCH_SIZE)
 
     totals = {
         "remove_uri": 0,
@@ -188,10 +190,10 @@ def run():
         "no_housenumber": 0,
     }
 
-    for batch_num, address_batch in enumerate(batch(addresses, batch_size), start=1):
+    for batch_num, address_batch in enumerate(batch(addresses, BATCH_SIZE), start=1):
         log(f"Processing batch {batch_num}/{total_batches} ")
         
-        start_index = (batch_num - 1) * batch_size + 1
+        start_index = (batch_num - 1) * BATCH_SIZE + 1
         stats = process_addresses(address_batch, count, start_index)
 
         for key in totals:
