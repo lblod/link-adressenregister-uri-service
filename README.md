@@ -45,6 +45,7 @@ Add the following to the `docker-compose.yml` file:
       MU_SPARQL_ENDPOINT: "http://triplestore:8890/sparql"
       MU_SPARQL_UPDATEPOINT: "http://triplestore:8890/sparql"
       CRON_SCHEDULE: "0 0 * * *"
+      BATCH_SIZE: "10"
 ```
 
 Then run `drc up -d link-adressenregister-uri`
@@ -55,6 +56,7 @@ The following variables are required:
 - `MU_SPARQL_UPDATEPOINT`
 
 The variable `CRON_SCHEDULE` is optional. By default its value is `"0 0 * * *"`.
+Variable `BATCH_SIZE` is also optional. It indicates the size of batches of addresses that are processed at once (compared to adressenregister and updated in the database). The default value is "10".
 
 ## How to run
 
